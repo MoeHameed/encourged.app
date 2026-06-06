@@ -9,9 +9,12 @@ as $$
   select group_id from public.group_members where user_id = auth.uid();
 $$;
 
--- updated_at trigger
+-- updated_at trigger (search_path pinned for hardening)
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -60,13 +63,16 @@ alter table public.group_activity enable row level security;
 create policy "read own profile" on public.profiles for select using (id = auth.uid());
 create policy "read group profiles" on public.profiles for select
   using (id in (select user_id from public.group_members where group_id = public.current_user_group_id()));
-create policy "update own profile" on public.profiles for update using (id = auth.uid());
+create policy "update own profile" on public.profiles for update
+  using (id = auth.uid()) with check (id = auth.uid());
 
 -- groups
 create policy "members read group" on public.groups for select
   using (id = public.current_user_group_id());
 create policy "owner/admin update group" on public.groups for update
   using (id in (select group_id from public.group_members
+                where user_id = auth.uid() and role in ('owner','admin')))
+  with check (id in (select group_id from public.group_members
                 where user_id = auth.uid() and role in ('owner','admin')));
 create policy "owner deletes group" on public.groups for delete
   using (owner_id = auth.uid());
@@ -98,9 +104,12 @@ create policy "owner/admin create group goal" on public.goals for insert
     (select group_id from public.group_members where user_id = auth.uid() and role in ('owner','admin')));
 create policy "owner/admin update group goal" on public.goals for update
   using (scope = 'group' and group_id in
+    (select group_id from public.group_members where user_id = auth.uid() and role in ('owner','admin')))
+  with check (scope = 'group' and group_id in
     (select group_id from public.group_members where user_id = auth.uid() and role in ('owner','admin')));
 create policy "update own personal goal" on public.goals for update
-  using (scope = 'personal' and created_by = auth.uid());
+  using (scope = 'personal' and created_by = auth.uid())
+  with check (scope = 'personal' and created_by = auth.uid());
 
 -- goal_assignments
 create policy "read own assignments" on public.goal_assignments for select
@@ -108,7 +117,7 @@ create policy "read own assignments" on public.goal_assignments for select
 create policy "read group assignments" on public.goal_assignments for select
   using (goal_id in (select id from public.goals where group_id = public.current_user_group_id()));
 create policy "update own assignment" on public.goal_assignments for update
-  using (user_id = auth.uid());
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "insert own assignment" on public.goal_assignments for insert
   with check (user_id = auth.uid());
 
@@ -122,7 +131,8 @@ create policy "read group completions" on public.completion_records for select
 
 -- notifications
 create policy "read own notifications" on public.notifications for select using (user_id = auth.uid());
-create policy "update own notifications" on public.notifications for update using (user_id = auth.uid());
+create policy "update own notifications" on public.notifications for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- group_activity
 create policy "read my group activity" on public.group_activity for select
