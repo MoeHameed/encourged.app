@@ -22,13 +22,18 @@ export async function signUp(formData: FormData) {
 export async function login(formData: FormData) {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
+  const next = String(formData.get("next") ?? "");
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") ? next : "/app";
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    redirect(`/auth/login?error=${encodeURIComponent(error.message)}`);
+    redirect(
+      `/auth/login?error=${encodeURIComponent(error.message)}${next ? "&next=" + encodeURIComponent(next) : ""}`,
+    );
   }
   revalidatePath("/", "layout");
-  redirect("/app");
+  redirect(safeNext);
 }
 
 export async function logout() {

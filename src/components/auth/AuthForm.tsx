@@ -9,6 +9,7 @@ export function AuthForm({
   showPassword = true,
   error,
   message,
+  next,
 }: {
   action: (formData: FormData) => void;
   cta: string;
@@ -16,9 +17,11 @@ export function AuthForm({
   showPassword?: boolean;
   error?: string;
   message?: string;
+  next?: string;
 }) {
   return (
     <form action={action} className="flex w-full max-w-sm flex-col gap-4">
+      {next && <input type="hidden" name="next" value={next} />}
       {error && <p className="text-sm text-red-600">{error}</p>}
       {message && <p className="text-sm text-green-700">{message}</p>}
       {showEmail && (

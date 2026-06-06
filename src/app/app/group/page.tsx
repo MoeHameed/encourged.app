@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -43,12 +45,25 @@ export default async function GroupPage() {
     for (const p of profs ?? []) nameById[p.id] = p.display_name;
   }
 
+  const isAdminOrOwner =
+    membership.role === "owner" || membership.role === "admin";
+
   return (
     <div className="flex flex-col gap-6 p-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{group?.name}</h1>
-        {group?.description && (
-          <p className="text-sm text-muted-foreground">{group.description}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">{group?.name}</h1>
+          {group?.description && (
+            <p className="text-sm text-muted-foreground">{group.description}</p>
+          )}
+        </div>
+        {isAdminOrOwner && (
+          <Link
+            href="/app/group/settings"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Settings &amp; invites
+          </Link>
         )}
       </div>
 
