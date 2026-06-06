@@ -3,16 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email/send";
 
 export async function createEmailInvite(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const supabase = await createClient();
-  const { error } = await supabase.rpc("create_group_invite", {
+  const { data: token, error } = await supabase.rpc("create_group_invite", {
     p_type: "email",
     p_email: email,
   });
   if (error) {
     redirect(`/app/group/settings?error=${encodeURIComponent(error.message)}`);
+  }
+  if (token) {
+    const link = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+    await sendEmail({
+      to: email,
+      subject: "You're invited to a group on encouraged.app",
+      html: `<p>You've been invited to join a group on encouraged.app.</p><p><a href="${link}">Accept the invite</a> (expires in 7 days).</p>`,
+    });
   }
   revalidatePath("/app/group/settings");
   redirect("/app/group/settings");

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeDueAtEndOfDay } from "@/lib/domain/goals";
+import { sendEmail } from "@/lib/email/send";
 
 export async function createGroupGoal(formData: FormData) {
   const title = String(formData.get("title") ?? "");
@@ -32,6 +33,27 @@ export async function createGroupGoal(formData: FormData) {
   if (error) {
     redirect(`/app/group/goals/new?error=${encodeURIComponent(error.message)}`);
   }
+
+  const { data: membership } = await supabase
+    .from("group_members").select("group_id").eq("user_id", user!.id).single();
+  if (membership) {
+    const { data: memberRows } = await supabase
+      .from("group_members").select("user_id").eq("group_id", membership.group_id);
+    const otherIds = (memberRows ?? []).map((m) => m.user_id).filter((id) => id !== user!.id);
+    if (otherIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles").select("email,email_on_new_goal").in("id", otherIds);
+      const recipients = (profs ?? []).filter((p) => p.email_on_new_goal).map((p) => p.email);
+      if (recipients.length) {
+        await sendEmail({
+          to: recipients,
+          subject: `New goal in encouraged.app: ${title}`,
+          html: `<p>Your group has a new goal: <strong>${title}</strong>.</p><p>Open encouraged.app to log your progress.</p>`,
+        });
+      }
+    }
+  }
+
   revalidatePath("/app", "layout");
   redirect("/app/group");
 }
