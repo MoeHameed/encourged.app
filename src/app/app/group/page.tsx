@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { GoalProgressSummary } from "@/components/goals/GoalProgressSummary";
+import { ActivityFeed } from "@/components/shell/ActivityFeed";
 
 export default async function GroupPage() {
   const supabase = await createClient();
@@ -157,6 +158,8 @@ export default async function GroupPage() {
           })
         )}
       </section>
+
+      <ActivityFeed groupId={membership.group_id} />
     </div>
   );
 }
