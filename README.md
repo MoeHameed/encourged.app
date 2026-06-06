@@ -7,23 +7,27 @@ A friendly, mobile-first accountability app. Create private groups, set shared g
 
 ## Prerequisites
 
-- Node.js 20+ (tested on 24)
+- Node.js 20+ (tested on 24) — must be on your PATH. If you installed pnpm standalone (no system Node), run: `pnpm runtime set node 24 -g`
 - pnpm 10+
 - Docker Desktop (for local Supabase) — must be running
 
 ## Local setup
 
 ```bash
+# 0. (If Node.js is not yet on your PATH — check with `node --version`)
+pnpm runtime set node 24 -g
+
 # 1. Install dependencies
 pnpm install
 
 # 2. Start local Supabase (Postgres, Auth, Studio, Mailpit). Docker must be running.
 pnpm dlx supabase start
 
-# 3. Create .env.local from the template, then fill in the keys printed by:
-#    pnpm dlx supabase status
+# 3. Create .env.local from the template, then fill in the two keys from step 2's output
+#    (or re-run `pnpm dlx supabase status` any time to see them again):
 cp .env.example .env.local
-#    Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY.
+#      "anon key"         → NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+#      "service_role key" → SUPABASE_SECRET_KEY
 
 # 4. Apply the database migrations (schema + RLS + triggers)
 pnpm dlx supabase db reset
