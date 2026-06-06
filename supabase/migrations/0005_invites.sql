@@ -9,7 +9,7 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_group uuid := public.current_user_group_id();
-  v_token text := encode(gen_random_bytes(18), 'hex');
+  v_token text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
   if v_group is null then raise exception 'not in a group'; end if;
