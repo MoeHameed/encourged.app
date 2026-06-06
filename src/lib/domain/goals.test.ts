@@ -40,7 +40,7 @@ describe("computeDueAtEndOfDay", () => {
   it("returns end-of-day in the given IANA timezone as a UTC instant", () => {
     // 2026-06-05 end-of-day in New York (EDT, UTC-4) => 2026-06-06T03:59:59.999Z
     const d = computeDueAtEndOfDay("2026-06-05", "America/New_York");
-    expect(d.toISOString()).toBe("2026-06-06T03:59:59.999Z");
+    expect(d?.toISOString()).toBe("2026-06-06T03:59:59.999Z");
   });
   it("returns null for an empty date", () => {
     expect(computeDueAtEndOfDay("", "UTC")).toBeNull();
