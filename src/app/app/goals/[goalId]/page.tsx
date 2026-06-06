@@ -24,6 +24,30 @@ export default async function GoalDetailPage({
 
   if (!goal) notFound();
 
+  // For group goals, load all member assignment statuses
+  let groupProgress: Array<{ displayName: string; status: string }> | null = null;
+  if (goal.scope === "group") {
+    const { data: allAssignments } = await supabase
+      .from("goal_assignments")
+      .select("user_id,status")
+      .eq("goal_id", goalId);
+
+    const memberUserIds = (allAssignments ?? []).map((a) => a.user_id);
+    const profileNameById: Record<string, string> = {};
+    if (memberUserIds.length) {
+      const { data: memberProfiles } = await supabase
+        .from("profiles")
+        .select("id,display_name")
+        .in("id", memberUserIds);
+      for (const p of memberProfiles ?? []) profileNameById[p.id] = p.display_name;
+    }
+
+    groupProgress = (allAssignments ?? []).map((a) => ({
+      displayName: profileNameById[a.user_id] ?? "Member",
+      status: a.status,
+    }));
+  }
+
   const { data: assignment } = await supabase
     .from("goal_assignments")
     .select("status,last_note,is_late")
@@ -109,6 +133,39 @@ export default async function GoalDetailPage({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {groupProgress && groupProgress.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Group progress</p>
+          <div className="rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+                    Member
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupProgress.map((row, i) => (
+                  <tr
+                    key={i}
+                    className="border-b border-border last:border-0"
+                  >
+                    <td className="px-4 py-2">{row.displayName}</td>
+                    <td className="px-4 py-2 text-right">
+                      <GoalStatusBadge status={row.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

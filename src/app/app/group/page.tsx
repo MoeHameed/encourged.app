@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { GoalProgressSummary } from "@/components/goals/GoalProgressSummary";
 
 export default async function GroupPage() {
   const supabase = await createClient();
@@ -48,6 +49,31 @@ export default async function GroupPage() {
   const isAdminOrOwner =
     membership.role === "owner" || membership.role === "admin";
 
+  // Load group goals
+  const { data: groupGoals } = await supabase
+    .from("goals")
+    .select("id,title,due_at,status")
+    .eq("group_id", membership.group_id)
+    .eq("scope", "group")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false });
+
+  const goalIds = (groupGoals ?? []).map((g) => g.id);
+
+  // Tally completion counts per goal
+  const countByGoal: Record<string, { total: number; done: number }> = {};
+  if (goalIds.length) {
+    const { data: assignmentRows } = await supabase
+      .from("goal_assignments")
+      .select("goal_id,status")
+      .in("goal_id", goalIds);
+    for (const row of assignmentRows ?? []) {
+      if (!countByGoal[row.goal_id]) countByGoal[row.goal_id] = { total: 0, done: 0 };
+      countByGoal[row.goal_id].total += 1;
+      if (row.status === "completed") countByGoal[row.goal_id].done += 1;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex items-start justify-between gap-4">
@@ -82,6 +108,55 @@ export default async function GroupPage() {
           ))}
         </CardContent>
       </Card>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Group goals
+          </h2>
+          {isAdminOrOwner && (
+            <Link
+              href="/app/group/goals/new"
+              className={buttonVariants({ size: "sm" })}
+            >
+              New group goal
+            </Link>
+          )}
+        </div>
+
+        {(groupGoals ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No group goals yet.</p>
+        ) : (
+          (groupGoals ?? []).map((goal) => {
+            const counts = countByGoal[goal.id] ?? { total: 0, done: 0 };
+            return (
+              <Card key={goal.id}>
+                <CardContent className="pt-4 flex flex-col gap-1">
+                  <Link
+                    href={`/app/goals/${goal.id}`}
+                    className="text-sm font-medium hover:underline"
+                  >
+                    {goal.title}
+                  </Link>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <GoalProgressSummary done={counts.done} total={counts.total} />
+                    {goal.due_at && (
+                      <span className="text-sm text-muted-foreground">
+                        &middot; Due{" "}
+                        {new Date(goal.due_at).toLocaleDateString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </section>
     </div>
   );
 }
