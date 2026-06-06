@@ -116,7 +116,7 @@ export default async function GroupSettingsPage({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 px-1">{decodeURIComponent(error)}</p>
+        <p className="text-sm text-red-600 px-1">{error}</p>
       )}
 
       {/* Edit group */}

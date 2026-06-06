@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 export async function signUp(formData: FormData) {
   const email = String(formData.get("email"));
@@ -23,8 +24,7 @@ export async function login(formData: FormData) {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
   const next = String(formData.get("next") ?? "");
-  const safeNext =
-    next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+  const safeNext = safeRelativePath(next);
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {

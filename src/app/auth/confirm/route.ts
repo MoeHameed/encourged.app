@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -8,9 +9,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
 
   // Guard against open redirects: only allow same-origin relative paths.
-  const rawNext = searchParams.get("next") ?? "/app";
-  const safeNext =
-    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/app";
+  const safeNext = safeRelativePath(searchParams.get("next"));
 
   const next =
     type === "recovery"

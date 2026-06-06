@@ -45,10 +45,14 @@ export async function createGroupGoal(formData: FormData) {
         .from("profiles").select("email,email_on_new_goal").in("id", otherIds);
       const recipients = (profs ?? []).filter((p) => p.email_on_new_goal).map((p) => p.email);
       if (recipients.length) {
+        const safeTitle = title
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
         await sendEmail({
           to: recipients,
           subject: `New goal in encouraged.app: ${title}`,
-          html: `<p>Your group has a new goal: <strong>${title}</strong>.</p><p>Open encouraged.app to log your progress.</p>`,
+          html: `<p>Your group has a new goal: <strong>${safeTitle}</strong>.</p><p>Open encouraged.app to log your progress.</p>`,
         });
       }
     }
