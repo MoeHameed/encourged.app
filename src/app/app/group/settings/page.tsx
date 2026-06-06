@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -16,6 +17,16 @@ import {
   createInviteLink,
   revokeInvite,
 } from "@/lib/invites/actions";
+import {
+  updateGroup,
+  promoteMember,
+  demoteAdmin,
+  removeMember,
+  transferOwnership,
+  leaveGroup,
+  deleteGroup,
+} from "@/lib/groups/actions";
+import { ConfirmButton } from "@/components/groups/ConfirmButton";
 
 export default async function GroupSettingsPage({
   searchParams,
@@ -41,6 +52,38 @@ export default async function GroupSettingsPage({
     redirect("/app/group");
   }
 
+  // Load the group details
+  const { data: group } = await supabase
+    .from("groups")
+    .select("name, description")
+    .eq("id", membership.group_id)
+    .single();
+
+  // Load all members for this group
+  const { data: memberRows } = await supabase
+    .from("group_members")
+    .select("user_id, role")
+    .eq("group_id", membership.group_id);
+
+  const memberIds = (memberRows ?? []).map((m) => m.user_id);
+
+  // Load profiles for all member ids
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id, display_name")
+    .in("id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((p) => [p.id, p.display_name as string | null]),
+  );
+
+  const members = (memberRows ?? []).map((m) => ({
+    user_id: m.user_id as string,
+    role: m.role as string,
+    display_name: profileMap.get(m.user_id) ?? m.user_id,
+  }));
+
+  // Load invites
   const { data: inviteRows } = await supabase
     .from("group_invites")
     .select("id, type, token, invited_email, expires_at, uses, max_uses, revoked_at")
@@ -57,6 +100,8 @@ export default async function GroupSettingsPage({
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const isOwner = membership.role === "owner";
+  const isAdmin = membership.role === "admin";
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -74,6 +119,168 @@ export default async function GroupSettingsPage({
         <p className="text-sm text-red-600 px-1">{decodeURIComponent(error)}</p>
       )}
 
+      {/* Edit group */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit group</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={updateGroup} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="group-name">Name</Label>
+              <Input
+                id="group-name"
+                name="name"
+                type="text"
+                defaultValue={group?.name ?? ""}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="group-description">Description (optional)</Label>
+              <Textarea
+                id="group-description"
+                name="description"
+                defaultValue={group?.description ?? ""}
+                rows={3}
+              />
+            </div>
+            <Button type="submit" className="w-full sm:w-auto">
+              Save
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Members</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {members.map((member) => {
+            const isSelf = member.user_id === user.id;
+            return (
+              <div
+                key={member.user_id}
+                className="flex flex-col gap-2 border-b pb-4 last:border-0 last:pb-0"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {member.display_name}
+                    {isSelf && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        (you)
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide ml-auto">
+                    {member.role}
+                  </span>
+                </div>
+
+                {/* Owner actions on non-self members */}
+                {isOwner && !isSelf && (
+                  <div className="flex flex-wrap gap-2">
+                    {member.role === "member" && (
+                      <>
+                        <form action={promoteMember}>
+                          <input
+                            type="hidden"
+                            name="user_id"
+                            value={member.user_id}
+                          />
+                          <Button type="submit" size="sm" variant="outline">
+                            Make admin
+                          </Button>
+                        </form>
+                        <form action={removeMember}>
+                          <input
+                            type="hidden"
+                            name="user_id"
+                            value={member.user_id}
+                          />
+                          <ConfirmButton
+                            size="sm"
+                            variant="destructive"
+                            message="Remove this member?"
+                          >
+                            Remove
+                          </ConfirmButton>
+                        </form>
+                      </>
+                    )}
+                    {member.role === "admin" && (
+                      <>
+                        <form action={demoteAdmin}>
+                          <input
+                            type="hidden"
+                            name="user_id"
+                            value={member.user_id}
+                          />
+                          <Button type="submit" size="sm" variant="outline">
+                            Make member
+                          </Button>
+                        </form>
+                        <form action={removeMember}>
+                          <input
+                            type="hidden"
+                            name="user_id"
+                            value={member.user_id}
+                          />
+                          <ConfirmButton
+                            size="sm"
+                            variant="destructive"
+                            message="Remove this member?"
+                          >
+                            Remove
+                          </ConfirmButton>
+                        </form>
+                        <form action={transferOwnership}>
+                          <input
+                            type="hidden"
+                            name="user_id"
+                            value={member.user_id}
+                          />
+                          <ConfirmButton
+                            size="sm"
+                            variant="outline"
+                            message="Transfer ownership to this person? You'll become an admin."
+                          >
+                            Make owner
+                          </ConfirmButton>
+                        </form>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Admin actions on non-self members with role "member" */}
+                {isAdmin && !isSelf && member.role === "member" && (
+                  <div className="flex flex-wrap gap-2">
+                    <form action={removeMember}>
+                      <input
+                        type="hidden"
+                        name="user_id"
+                        value={member.user_id}
+                      />
+                      <ConfirmButton
+                        size="sm"
+                        variant="destructive"
+                        message="Remove this member?"
+                      >
+                        Remove
+                      </ConfirmButton>
+                    </form>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Invite by email */}
       <Card>
         <CardHeader>
           <CardTitle>Invite by email</CardTitle>
@@ -146,6 +353,34 @@ export default async function GroupSettingsPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Danger zone */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Danger zone</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isOwner ? (
+            <form action={deleteGroup}>
+              <ConfirmButton
+                variant="destructive"
+                message="Delete this group for everyone? This cannot be undone."
+              >
+                Delete group
+              </ConfirmButton>
+            </form>
+          ) : (
+            <form action={leaveGroup}>
+              <ConfirmButton
+                variant="outline"
+                message="Leave this group?"
+              >
+                Leave group
+              </ConfirmButton>
+            </form>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
