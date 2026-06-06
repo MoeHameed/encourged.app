@@ -65,7 +65,14 @@ export default async function DashboardPage() {
           >
             New personal goal
           </Link>
-          {!membership && (
+          {membership ? (
+            <Link
+              href="/app/group"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              View group
+            </Link>
+          ) : (
             <Link
               href="/app/group/new"
               className={buttonVariants({ variant: "outline", size: "sm" })}
